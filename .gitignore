@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+coverage
+
+# Local reference-extraction working files (PDFs are NOT committed)
+/data-extraction/_raw/
+*.pdf
+
+# Machine-specific Claude Code permission state (references local paths)
+.claude/settings.local.json
