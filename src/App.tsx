@@ -1,17 +1,19 @@
 /**
  * Paediatric Dosing & Dispensing Calculator — v1 UI.
  *
- * A thin, honest shell over the deterministic engine: it collects inputs, calls
- * calculate() once, and renders the result. It states no dose the engine didn't
- * produce, and it never hides that the current dataset is unverified mock data.
+ * A thin, honest shell over the deterministic engine. It collects one set of
+ * inputs and shows the result for EVERY populated reference side by side, so a
+ * clinician can see, at a glance, how the Ghana STG (age-band) and the WHO
+ * Pocket Book (weight-based mg/kg) dose the same child differently. It states no
+ * dose the engine didn't produce, and never hides that the data is unverified.
  */
 import { useMemo, useState } from 'react'
-import { FlaskConical, Scale, Baby, BookOpen, Stethoscope } from 'lucide-react'
-import { drugById, drugs, references } from './data'
+import { FlaskConical, Scale, Baby, Stethoscope, Columns2 } from 'lucide-react'
+import { drugById, drugs, populatedReferences, references, rulesFor } from './data'
 import type { Formulation } from './data/schema'
 import { calculate } from './engine/calculate'
-import type { CalcInput } from './engine/types'
-import { ResultPanel } from './ui/ResultPanel'
+import type { CalculationResult } from './engine/types'
+import { ReferenceResult } from './ui/ReferenceResult'
 
 const labelCls = 'block text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
 const fieldCls =
@@ -24,7 +26,6 @@ function formulationLabel(f: Formulation): string {
 
 export default function App() {
   const [drugId, setDrugId] = useState(drugs[0].id)
-  const [referenceId, setReferenceId] = useState('ghana-stg-2017')
   const [formulationId, setFormulationId] = useState(drugs[0].formulations[0].id)
   const [weight, setWeight] = useState('')
   const [ageMonths, setAgeMonths] = useState('')
@@ -35,35 +36,49 @@ export default function App() {
 
   function onDrugChange(id: string) {
     setDrugId(id)
-    const next = drugById.get(id)!
-    setFormulationId(next.formulations[0].id) // keep formulation valid for the new drug
+    setFormulationId(drugById.get(id)!.formulations[0].id) // keep formulation valid for the new drug
   }
+
+  // References that actually have rules for THIS drug, preferred source first.
+  const activeRefs = useMemo(
+    () =>
+      populatedReferences()
+        .filter((r) => rulesFor(drugId, r.id).length > 0)
+        .sort((a, b) => Number(b.preferred) - Number(a.preferred)),
+    [drugId],
+  )
 
   const weightKg = parseFloat(weight)
   const hasWeight = Number.isFinite(weightKg) && weightKg > 0
 
-  const result = useMemo(() => {
-    if (!hasWeight) return null
-    const input: CalcInput = {
-      rules: drug.rules,
-      referenceId,
-      weightKg,
-      ageMonths: ageMonths.trim() === '' ? null : parseFloat(ageMonths),
-      indicationId: null,
-      formulation,
-      courseDays: courseDays.trim() === '' ? null : parseFloat(courseDays),
+  // One CalculationResult per active reference — same inputs, different source.
+  const results = useMemo(() => {
+    if (!hasWeight) return {} as Record<string, CalculationResult>
+    const out: Record<string, CalculationResult> = {}
+    for (const ref of activeRefs) {
+      out[ref.id] = calculate({
+        rules: drug.rules,
+        referenceId: ref.id,
+        weightKg,
+        ageMonths: ageMonths.trim() === '' ? null : parseFloat(ageMonths),
+        indicationId: null,
+        formulation,
+        courseDays: courseDays.trim() === '' ? null : parseFloat(courseDays),
+      })
     }
-    return calculate(input)
-  }, [hasWeight, drug, referenceId, weightKg, ageMonths, formulation, courseDays])
+    return out
+  }, [hasWeight, activeRefs, drug, weightKg, ageMonths, formulation, courseDays])
+
+  const hiddenRefs = references.filter((r) => r.notYetPopulated || r.licensed)
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       {/* Dev-data banner — every rule shipped today is unverified mock data */}
       <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-amber-950">
-        Development build · dosing data is unverified placeholder data · not for clinical use
+        Development build · dosing data is unverified &amp; awaiting clinician sign-off · not for clinical use
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 pb-16 pt-8 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:px-6">
         <header className="mb-8">
           <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400">
             <Stethoscope className="h-5 w-5" aria-hidden />
@@ -71,96 +86,79 @@ export default function App() {
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Dose &amp; dispensing calculator</h1>
           <p className="mt-1.5 max-w-prose text-sm text-slate-600 dark:text-slate-400">
-            Enter a child’s weight, choose the drug and formulation, and get the administration dose and the quantity to
-            dispense — with every number tied to a cited source.
+            Enter a child’s weight, choose the drug and formulation, and compare how each reference doses it — the
+            administration dose and the quantity to dispense, every number tied to a cited source.
           </p>
         </header>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* ---- Inputs ---- */}
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+        {/* ---- Inputs ---- */}
+        <form
+          className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2 sm:p-5"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <div className="sm:col-span-2">
+            <label htmlFor="drug" className={labelCls}>
+              <FlaskConical className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Drug
+            </label>
+            <select id="drug" className={fieldCls} value={drugId} onChange={(e) => onDrugChange(e.target.value)}>
+              {drugs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                  {d.synonyms[0] ? ` (${d.synonyms[0]})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label htmlFor="formulation" className={labelCls}>
+              Formulation / strength
+            </label>
+            <select id="formulation" className={fieldCls} value={formulation.id} onChange={(e) => setFormulationId(e.target.value)}>
+              {drug.formulations.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {formulationLabel(f)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 sm:col-span-2">
             <div>
-              <label htmlFor="drug" className={labelCls}>
-                <FlaskConical className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Drug
+              <label htmlFor="weight" className={labelCls}>
+                <Scale className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Weight (kg)
               </label>
-              <select id="drug" className={fieldCls} value={drugId} onChange={(e) => onDrugChange(e.target.value)}>
-                {drugs.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                    {d.synonyms[0] ? ` (${d.synonyms[0]})` : ''}
-                  </option>
-                ))}
-              </select>
+              <input
+                id="weight"
+                className={fieldCls}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                placeholder="e.g. 12"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+              />
             </div>
-
             <div>
-              <label htmlFor="formulation" className={labelCls}>
-                Formulation / strength
+              <label htmlFor="age" className={labelCls}>
+                <Baby className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Age (mo)
               </label>
-              <select id="formulation" className={fieldCls} value={formulation.id} onChange={(e) => setFormulationId(e.target.value)}>
-                {drug.formulations.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {formulationLabel(f)}
-                  </option>
-                ))}
-              </select>
+              <input
+                id="age"
+                className={fieldCls}
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                placeholder="if age-band"
+                value={ageMonths}
+                onChange={(e) => setAgeMonths(e.target.value)}
+              />
             </div>
-
-            <div>
-              <label htmlFor="reference" className={labelCls}>
-                <BookOpen className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Reference source
-              </label>
-              <select id="reference" className={fieldCls} value={referenceId} onChange={(e) => setReferenceId(e.target.value)}>
-                {references.map((r) => {
-                  const disabled = r.notYetPopulated || r.licensed
-                  const suffix = r.licensed ? ' — licence required' : r.notYetPopulated ? ' — coming soon' : ''
-                  return (
-                    <option key={r.id} value={r.id} disabled={disabled}>
-                      {r.shortName} ({r.editionLabel}){suffix}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="weight" className={labelCls}>
-                  <Scale className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Weight (kg)
-                </label>
-                <input
-                  id="weight"
-                  className={fieldCls}
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.1"
-                  placeholder="e.g. 12"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="age" className={labelCls}>
-                  <Baby className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Age (months)
-                </label>
-                <input
-                  id="age"
-                  className={fieldCls}
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  placeholder="optional"
-                  value={ageMonths}
-                  onChange={(e) => setAgeMonths(e.target.value)}
-                />
-              </div>
-            </div>
-
             <div>
               <label htmlFor="course" className={labelCls}>
-                Course length (days)
+                Course (days)
               </label>
               <input
                 id="course"
@@ -169,28 +167,46 @@ export default function App() {
                 inputMode="numeric"
                 min="1"
                 step="1"
-                placeholder="uses the rule default"
+                placeholder="default"
                 value={courseDays}
                 onChange={(e) => setCourseDays(e.target.value)}
               />
             </div>
-
-            <p className="text-xs text-slate-500">
-              Age is only needed for age-banded drugs (e.g. zinc for diarrhoea). Course length defaults to the rule’s
-              recommended duration when left blank.
-            </p>
-          </form>
-
-          {/* ---- Result ---- */}
-          <div>
-            {result ? (
-              <ResultPanel result={result} />
-            ) : (
-              <div className="flex h-full min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
-                Enter a weight to calculate the dose.
-              </div>
-            )}
           </div>
+
+          <p className="text-xs text-slate-500 sm:col-span-2">
+            Age is needed for age-banded references (e.g. the Ghana STG for paracetamol, amoxicillin, zinc). Course length
+            defaults to each rule’s recommended duration when left blank.
+          </p>
+        </form>
+
+        {/* ---- Comparison ---- */}
+        <div className="mt-6">
+          <div className="mb-3 flex items-center gap-2 text-slate-500">
+            <Columns2 className="h-4 w-4" aria-hidden />
+            <h2 className="text-[0.7rem] font-semibold uppercase tracking-wide">
+              {activeRefs.length > 1 ? `Comparison · ${activeRefs.length} references` : 'Result'}
+            </h2>
+          </div>
+
+          <div className={`grid gap-6 ${activeRefs.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+            {activeRefs.map((ref) => (
+              <ReferenceResult key={ref.id} reference={ref} result={hasWeight ? results[ref.id] : null} />
+            ))}
+          </div>
+
+          {hiddenRefs.length > 0 && (
+            <p className="mt-5 text-xs text-slate-400">
+              Not shown:{' '}
+              {hiddenRefs.map((r, i) => (
+                <span key={r.id}>
+                  {i > 0 && ', '}
+                  {r.shortName} ({r.licensed ? 'licence required' : 'coming soon'})
+                </span>
+              ))}
+              .
+            </p>
+          )}
         </div>
       </div>
     </div>

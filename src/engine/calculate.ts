@@ -170,7 +170,18 @@ export function calculate(input: CalcInput): CalculationResult {
     ageMonths,
     indicationId: input.indicationId,
   })
-  if (!sel.ok) return blocked(sel.detail, [...warnings, warn(sel.reason, 'danger', sel.detail)])
+  if (!sel.ok) {
+    // A reference that doses by age band needs an age. When selection only tied
+    // because the age is missing, say THAT — not the generic "fix the data".
+    if (sel.reason === 'AMBIGUOUS_RULE' && ageMonths == null) {
+      const ageBandedHere = input.rules.filter((r) => r.referenceId === input.referenceId && r.ageBand)
+      if (ageBandedHere.length > 1) {
+        const msg = 'Enter the child’s age — this reference doses by age band, so the age decides which dose applies.'
+        return blocked(msg, [...warnings, warn('AGE_REQUIRED', 'danger', msg)])
+      }
+    }
+    return blocked(sel.detail, [...warnings, warn(sel.reason, 'danger', sel.detail)])
+  }
   const rule = sel.rule
 
   // --- 3. Verification gate -------------------------------------------------

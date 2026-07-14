@@ -215,6 +215,22 @@ describe('calculate — selection & guards', () => {
     expect(rChild.appliedRule?.id).toBe('zinc-child')
   })
 
+  it('asks for age (not "fix the data") when an age-band reference gets no age', () => {
+    const infant: DosingRule = {
+      id: 'zinc-infant',
+      referenceId: REF,
+      ageBand: { minMonthsIncl: 0, maxMonthsExcl: 6 },
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_day', perKg: false, amount: { value: 10, unit: 'mg' }, frequencyPerDay: 1, route: 'oral' } }],
+      provenance: prov(),
+    }
+    const child: DosingRule = { ...infant, id: 'zinc-child', ageBand: { minMonthsIncl: 6, maxMonthsExcl: 60 } }
+    const r = calculate(baseInput({ rules: [infant, child], ageMonths: null, formulation: tab250Scored }))
+    expect(r.status).toBe('blocked')
+    expect(r.warnings.map((w) => w.code)).toContain('AGE_REQUIRED')
+    expect(r.warnings.map((w) => w.code)).not.toContain('AMBIGUOUS_RULE')
+  })
+
   it('raises a loud warning for unverified data', () => {
     const rule = { ...paraRule(), provenance: prov(false) }
     const r = calculate(baseInput({ rules: [rule] }))
