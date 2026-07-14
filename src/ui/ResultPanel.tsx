@@ -49,7 +49,7 @@ export function ResultPanel({ result }: { result: CalculationResult }) {
           <p className="mt-1.5 text-3xl font-semibold tracking-tight text-teal-900 tabular-nums dark:text-teal-100">{a.instruction}</p>
           {t && <p className="mt-1 text-sm text-teal-800/90 dark:text-teal-200/80">{frequencyLabel(t.frequencyPerDay)}</p>}
           <p className="mt-2 text-xs text-teal-700/80 dark:text-teal-300/70">
-            Delivers ≈ {num(a.deliveredMg)} mg per dose (exact target {num(a.exactValue)} {a.unit})
+            Delivers ≈ {a.deliveredMgHigh != null ? `${num(a.deliveredMg)}–${num(a.deliveredMgHigh)}` : num(a.deliveredMg)} mg per dose
           </p>
         </div>
       )}
@@ -59,12 +59,14 @@ export function ResultPanel({ result }: { result: CalculationResult }) {
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 text-sm dark:border-slate-700 dark:bg-slate-700">
           <div className="bg-white p-3 dark:bg-slate-900">
             <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500">Dose</dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">{num(t.perDose.value)} {t.perDose.unit}</dd>
+            <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">
+              {t.perDoseHigh ? `${num(t.perDose.value)}–${num(t.perDoseHigh.value)}` : num(t.perDose.value)} {t.perDose.unit}
+            </dd>
           </div>
           <div className="bg-white p-3 dark:bg-slate-900">
             <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500">Per day</dt>
             <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">
-              {t.perDay ? `${num(t.perDay.value)} ${t.perDay.unit}` : '—'}
+              {t.perDay ? `${t.perDayHigh ? `${num(t.perDay.value)}–${num(t.perDayHigh.value)}` : num(t.perDay.value)} ${t.perDay.unit}` : '—'}
             </dd>
           </div>
           <div className="col-span-2 bg-white p-3 dark:bg-slate-900">

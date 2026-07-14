@@ -28,7 +28,7 @@ export const references: Reference[] = [
     editionId: '2013',
     editionLabel: '2nd edition, 2013',
     preferred: false,
-    notYetPopulated: true, // reference #2 — planned, not yet entered
+    notYetPopulated: false, // weight-based (mg/kg) rules populated as the cross-check to STG age bands
     licensed: false,
   },
   {

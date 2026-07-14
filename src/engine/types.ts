@@ -38,7 +38,10 @@ export interface Warning {
 
 export interface TargetDose {
   perDose: Quantity
+  /** Upper bound when the rule specifies a dose RANGE (e.g. STG "120–250 mg"). */
+  perDoseHigh?: Quantity | null
   perDay: Quantity | null // null when a non-uniform schedule makes a flat daily total unsafe
+  perDayHigh?: Quantity | null
   basisLabel: string // "3 mg/kg/dose x 10 kg"
   frequencyPerDay: number
   capApplied: boolean
@@ -46,12 +49,16 @@ export interface TargetDose {
 
 export interface Administration {
   kind: 'volume' | 'units'
-  /** Primary human instruction, e.g. "Draw 3 mL" / "Give half a tablet". */
+  /** Primary human instruction, e.g. "Draw 3 mL" / "Give 2–4 mL" for a range. */
   instruction: string
-  value: number // measurable mL or unit count
+  value: number // measurable mL or unit count (low bound of a range)
+  /** Upper bound of a measurable dose range, when the rule gives a range. */
+  valueHigh?: number
   unit: string // 'mL' | 'tablet' | ...
-  deliveredMg: number // mass actually delivered after rounding
+  deliveredMg: number // mass actually delivered after rounding (low bound)
+  deliveredMgHigh?: number
   exactValue: number // pre-rounding value (for transparency)
+  exactValueHigh?: number
 }
 
 export interface Dispensing {

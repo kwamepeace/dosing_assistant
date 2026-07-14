@@ -246,3 +246,32 @@ describe('calculate — selection & guards', () => {
     expect(r.warnings.map((w) => w.code)).toContain('NON_UNIFORM_SCHEDULE')
   })
 })
+
+describe('calculate — dose ranges (STG age-band style)', () => {
+  function rangeRule(): DosingRule {
+    const rule = paraRule()
+    rule.phases[0].dose = { basis: 'per_dose', perKg: false, amount: { value: 120, unit: 'mg' }, amountMax: { value: 250, unit: 'mg' }, frequencyPerDay: 4, route: 'oral' }
+    rule.maxDailyDose = undefined
+    rule.absoluteCap = undefined
+    return rule
+  }
+
+  it('carries a low + high bound and a range instruction', () => {
+    const r = calculate(baseInput({ rules: [rangeRule()], weightKg: 15, courseDays: 3 }))
+    expect(r.status).toBe('ok')
+    expect(r.targetDose?.perDose.value).toBe(120)
+    expect(r.targetDose?.perDoseHigh?.value).toBe(250)
+    expect(r.targetDose?.perDay?.value).toBe(480)
+    expect(r.targetDose?.perDayHigh?.value).toBe(1000)
+    // 120 mg / 24 mg/mL = 5.0 mL ; 250 mg / 24 = 10.417 -> 10.5 mL
+    expect(r.administration?.value).toBe(5)
+    expect(r.administration?.valueHigh).toBe(10.5)
+    expect(r.administration?.instruction).toMatch(/5.*10\.5 mL/)
+  })
+
+  it('dispenses for the UPPER bound so a course is never short', () => {
+    const r = calculate(baseInput({ rules: [rangeRule()], weightKg: 15, courseDays: 3 }))
+    // upper bound 10.5 mL x 4 x 3 = 126 mL -> 2 x 100 mL bottles
+    expect(r.dispensing?.packs).toBe(2)
+  })
+})
