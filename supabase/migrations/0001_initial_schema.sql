@@ -149,12 +149,22 @@ create table profiles (
 );
 create trigger profiles_updated before update on profiles for each row execute function set_updated_at();
 
--- New auth user -> profile row (least privilege: 'nurse', registration unverified)
+-- New auth user -> profile row. Registration details come from sign-up metadata.
+-- `role` is CLAMPED to clinical roles: a crafted metadata payload can never
+-- self-grant 'reviewer'/'admin' (registration_verified also stays false).
 create or replace function handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, full_name)
-  values (new.id, new.raw_user_meta_data ->> 'full_name');
+  insert into public.profiles (id, full_name, role, registration_body, registration_number)
+  values (
+    new.id,
+    new.raw_user_meta_data ->> 'full_name',
+    case when new.raw_user_meta_data ->> 'role' in ('nurse', 'doctor', 'pharmacist')
+         then (new.raw_user_meta_data ->> 'role')::app_role
+         else 'nurse' end,
+    new.raw_user_meta_data ->> 'registration_body',
+    new.raw_user_meta_data ->> 'registration_number'
+  );
   return new;
 end;
 $$;

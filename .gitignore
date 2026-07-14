@@ -6,6 +6,11 @@ dist-ssr
 .vite
 coverage
 
+# Environment / secrets (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
 # Local reference-extraction working files (PDFs are NOT committed)
 /data-extraction/_raw/
 *.pdf

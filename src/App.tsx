@@ -8,12 +8,15 @@
  * dose the engine didn't produce, and never hides that the data is unverified.
  */
 import { useMemo, useState } from 'react'
-import { FlaskConical, Scale, Baby, Stethoscope, Columns2 } from 'lucide-react'
+import { FlaskConical, Scale, Baby, Stethoscope, Columns2, Loader2 } from 'lucide-react'
 import { drugById, drugs, populatedReferences, references, rulesFor } from './data'
 import type { Formulation } from './data/schema'
 import { calculate } from './engine/calculate'
 import type { CalculationResult } from './engine/types'
 import { ReferenceResult } from './ui/ReferenceResult'
+import { useAuth } from './auth/AuthProvider'
+import { AuthScreen } from './auth/AuthScreen'
+import { AccountMenu } from './auth/AccountMenu'
 
 const labelCls = 'block text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
 const fieldCls =
@@ -24,7 +27,22 @@ function formulationLabel(f: Formulation): string {
   return f.displayName
 }
 
+/** Auth shell: gate the calculator behind professional sign-in when Supabase is
+ *  configured; otherwise run open (local dev mode). */
 export default function App() {
+  const { configured, loading, session } = useAuth()
+  if (configured && loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader2 className="h-6 w-6 animate-spin text-teal-600" aria-label="Loading" />
+      </div>
+    )
+  }
+  if (configured && !session) return <AuthScreen />
+  return <Calculator />
+}
+
+function Calculator() {
   const [drugId, setDrugId] = useState(drugs[0].id)
   const [formulationId, setFormulationId] = useState(drugs[0].formulations[0].id)
   const [weight, setWeight] = useState('')
@@ -79,16 +97,19 @@ export default function App() {
       </div>
 
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:px-6">
-        <header className="mb-8">
-          <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400">
-            <Stethoscope className="h-5 w-5" aria-hidden />
-            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em]">Paediatric dosing · Ghana</span>
+        <header className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400">
+              <Stethoscope className="h-5 w-5" aria-hidden />
+              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em]">Paediatric dosing · Ghana</span>
+            </div>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Dose &amp; dispensing calculator</h1>
+            <p className="mt-1.5 max-w-prose text-sm text-slate-600 dark:text-slate-400">
+              Enter a child’s weight, choose the drug and formulation, and compare how each reference doses it — the
+              administration dose and the quantity to dispense, every number tied to a cited source.
+            </p>
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Dose &amp; dispensing calculator</h1>
-          <p className="mt-1.5 max-w-prose text-sm text-slate-600 dark:text-slate-400">
-            Enter a child’s weight, choose the drug and formulation, and compare how each reference doses it — the
-            administration dose and the quantity to dispense, every number tied to a cited source.
-          </p>
+          <AccountMenu />
         </header>
 
         {/* ---- Inputs ---- */}

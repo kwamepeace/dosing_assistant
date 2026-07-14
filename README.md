@@ -36,10 +36,21 @@ and Lexicomp are proprietary** — they appear in the picker as "licence require
 never populated from copied content. The data loader refuses to serve any rule attributed
 to a licensed source.
 
+## Authentication
+
+Sign-in is **professional-registration based** and gated by role. It only turns on
+when Supabase is configured:
+
+- **No `.env`** → the app runs in open **local dev mode** over the mock dataset (no auth). This is the default.
+- **`.env` filled in** (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) → sign-in is required. Creating an account captures the clinician's role (nurse/doctor/pharmacist) and registration number with the matching Ghanaian register (Pharmacy Council / MDC / Nursing & Midwifery Council). Registration is marked **pending** until an administrator verifies it; roles are clamped so no one can self-grant `reviewer`/`admin`.
+
+The `profiles` table, RLS, and the sign-up trigger live in [`supabase/migrations/0001_initial_schema.sql`](supabase/migrations/0001_initial_schema.sql).
+
 ## Develop
 
 ```bash
 npm install
+cp .env.example .env   # optional — leave blank for open dev mode
 npm run dev        # http://localhost:5173
 npm test           # engine unit tests (vitest)
 npm run typecheck  # tsc --noEmit
@@ -48,13 +59,15 @@ npm run build      # tsc + vite production build
 
 ## Status
 
-Milestone M1 (narrow, zero-AI MVP). Engine, schema, three seed drugs (paracetamol,
-amoxicillin, zinc), and the calculator UI are in place. Next: verified Ghana STG data,
-Supabase + professional-registration auth, and the multi-reference comparison view.
+Engine, schema, three seed drugs (paracetamol, amoxicillin, zinc with real Ghana STG
+citations), the side-by-side STG-vs-WHO comparison view, the Supabase schema/migration,
+and professional-registration auth are in place. Next: a live Supabase project to apply
+the migration against, clinician countersign to flip rules to `verified`, offline/PWA,
+and the data-authoring + clinical-assistant agent surfaces.
 
 ## Tech
 
-React 19 · TypeScript · Vite · Tailwind v4 · Zod · Vitest.
+React 19 · TypeScript · Vite · Tailwind v4 · Zod · Vitest · Supabase (Auth + Postgres + RLS).
 
 ## Licence
 
