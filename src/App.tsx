@@ -181,6 +181,10 @@ function Calculator() {
             </p>
           )}
         </div>
+
+        <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-slate-400 dark:border-slate-800">
+          Deterministic, source-cited paediatric dosing · works offline · Ghana
+        </footer>
       </div>
     </div>
   )

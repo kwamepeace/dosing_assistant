@@ -1,16 +1,17 @@
 /**
  * Auth state for the whole app. Wraps Supabase Auth and the `profiles` row.
  *
- * When Supabase is not configured, `configured` is false and the app treats
- * everyone as an anonymous local dev user — the calculator still works over the
- * mock dataset, there is simply no sign-in.
+ * The Supabase client is loaded lazily (see lib/supabase). When it is not
+ * configured, `configured` is false and the app treats everyone as an anonymous
+ * local dev user — the calculator still works over the mock dataset, there is
+ * simply no sign-in.
  *
  * Note on passwords: these methods pass the values the USER typed into the app's
  * own forms straight to Supabase. The app never stores or logs them.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import type { Session, SupabaseClient } from '@supabase/supabase-js'
+import { getSupabase, isSupabaseConfigured } from '../lib/supabase'
 import type { ClinicalRole, Profile } from './types'
 
 interface SignUpArgs {
@@ -41,9 +42,8 @@ export function useAuth(): AuthContextValue {
   return ctx
 }
 
-async function loadProfile(userId: string): Promise<Profile | null> {
-  if (!supabase) return null
-  const { data } = await supabase
+async function loadProfile(client: SupabaseClient, userId: string): Promise<Profile | null> {
+  const { data } = await client
     .from('profiles')
     .select('id, full_name, role, registration_number, registration_body, registration_verified')
     .eq('id', userId)
@@ -57,28 +57,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false)
-      return
-    }
     let active = true
+    let unsub: (() => void) | undefined
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    void (async () => {
+      const client = await getSupabase()
+      if (!client || !active) {
+        setLoading(false)
+        return
+      }
+      const { data } = await client.auth.getSession()
       if (!active) return
       setSession(data.session)
-      if (data.session) setProfile(await loadProfile(data.session.user.id))
+      if (data.session) setProfile(await loadProfile(client, data.session.user.id))
       setLoading(false)
-    })
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
-      if (!active) return
-      setSession(s)
-      setProfile(s ? await loadProfile(s.user.id) : null)
-    })
+      const { data: sub } = client.auth.onAuthStateChange(async (_event, s) => {
+        if (!active) return
+        setSession(s)
+        setProfile(s ? await loadProfile(client, s.user.id) : null)
+      })
+      unsub = () => sub.subscription.unsubscribe()
+    })()
 
     return () => {
       active = false
-      sub.subscription.unsubscribe()
+      unsub?.()
     }
   }, [])
 
@@ -89,16 +93,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
 
     async signIn(email, password) {
-      if (!supabase) return { error: 'Sign-in is not configured.' }
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const client = await getSupabase()
+      if (!client) return { error: 'Sign-in is not configured.' }
+      const { error } = await client.auth.signInWithPassword({ email, password })
       return { error: error?.message ?? null }
     },
 
     async signUp(args) {
-      if (!supabase) return { error: 'Sign-up is not configured.', needsEmailConfirm: false }
+      const client = await getSupabase()
+      if (!client) return { error: 'Sign-up is not configured.', needsEmailConfirm: false }
       // Registration details go in user metadata; the DB `handle_new_user`
       // trigger writes them into the profile (and clamps role to clinical roles).
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error } = await client.auth.signUp({
         email: args.email,
         password: args.password,
         options: {
@@ -111,17 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       })
       if (error) return { error: error.message, needsEmailConfirm: false }
-      // No active session yet => email confirmation is required.
       return { error: null, needsEmailConfirm: !data.session }
     },
 
     async signOut() {
-      await supabase?.auth.signOut()
+      const client = await getSupabase()
+      await client?.auth.signOut()
       setProfile(null)
     },
 
     async refreshProfile() {
-      if (session) setProfile(await loadProfile(session.user.id))
+      const client = await getSupabase()
+      if (client && session) setProfile(await loadProfile(client, session.user.id))
     },
   }
 

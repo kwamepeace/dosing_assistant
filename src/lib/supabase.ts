@@ -1,25 +1,33 @@
 /**
- * Supabase client — created only when the two env vars are present.
+ * Supabase client — lazily loaded, and only when the env vars are present.
  *
- * The app is designed to run in TWO modes:
+ * The app runs in TWO modes:
  *   - UNCONFIGURED (no env vars): a local, open "dev mode" over the mock dataset,
- *     with no auth. This is the current state (no dosing project provisioned).
- *   - CONFIGURED: real Supabase Auth; professional sign-in is required.
+ *     no auth. `getSupabase()` resolves to null and `@supabase/supabase-js` is
+ *     never even downloaded — it is a dynamic import, so it stays out of the
+ *     initial bundle (important for low-bandwidth use).
+ *   - CONFIGURED: real Supabase Auth + Postgres; professional sign-in required.
  *
- * Keeping the client nullable means the whole app compiles and runs with no
- * backend, and flips to gated auth the moment `.env` is filled in — no code
- * change. Only the ANON key belongs here (public, RLS-protected); never a
- * service-role key in client code.
+ * Only the ANON key belongs here (public, RLS-protected); never a service-role key.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const isSupabaseConfigured = Boolean(url && anonKey)
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(url as string, anonKey as string, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    })
-  : null
+let clientPromise: Promise<SupabaseClient> | null = null
+
+/** Resolve the shared client (created once), or null if not configured. */
+export function getSupabase(): Promise<SupabaseClient | null> {
+  if (!isSupabaseConfigured) return Promise.resolve(null)
+  if (!clientPromise) {
+    clientPromise = import('@supabase/supabase-js').then(({ createClient }) =>
+      createClient(url as string, anonKey as string, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      }),
+    )
+  }
+  return clientPromise
+}

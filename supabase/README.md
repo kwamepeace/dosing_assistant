@@ -27,8 +27,8 @@ fetching, so Postgres is storage and Zod remains the gate.
 
 ## Before production
 
-- Lock down `profiles.role` and `profiles.registration_verified` so a user cannot self-promote (a `BEFORE UPDATE` trigger that rejects changes to those columns unless the caller is an admin). The current `profiles_self_update` policy allows a user to edit their own row.
-- Consider server-side verification of registration numbers against the professional registers.
+- ✅ `profiles.role` and `profiles.registration_verified` are locked: the `guard_profile_privilege()` trigger rejects any change to those columns unless the caller is an admin, so the self-service `profiles_self_update` policy cannot be used to self-promote.
+- Consider server-side verification of registration numbers against the professional registers (currently `registration_verified` is flipped manually by an admin).
 
 ## Applying it
 

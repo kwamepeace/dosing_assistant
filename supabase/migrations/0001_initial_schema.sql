@@ -178,6 +178,24 @@ language sql stable security definer set search_path = public as $$
   select role from public.profiles where id = auth.uid();
 $$;
 
+-- A user may edit their own name / registration number, but NOT their own role
+-- or verification status. Only an admin may change those. This is what makes the
+-- self-service `profiles_self_update` policy safe against privilege escalation.
+create or replace function guard_profile_privilege() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if current_app_role() is distinct from 'admin' then
+    if new.role is distinct from old.role
+       or new.registration_verified is distinct from old.registration_verified then
+      raise exception 'role and registration_verified can only be changed by an admin';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+create trigger profiles_guard_privilege before update on profiles
+  for each row execute function guard_profile_privilege();
+
 -- ----------------------------------------------------------------------------
 -- calculation_audit — immutable log; NO patient identifiers by design
 -- ----------------------------------------------------------------------------
