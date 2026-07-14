@@ -42,6 +42,14 @@ const AMOX_STG_NOTE =
   'Transcribed from Ghana STG 2017 p.92: age-band amoxicillin 125/250/500 mg, 12 hourly. INTERPRETATIONS for countersign: (1) this table is in the Diphtheria section and states a 10-day course; a general 5-day default is used here — confirm duration per indication and relocate the citation to a more general amoxicillin reference if preferred; (2) age-band edges are half-open.'
 const WHO_NOTE =
   'Weight-based (mg/kg) cross-check. Figure is a standard paediatric value; the exact WHO Pocket Book of Hospital Care for Children (2nd ed., 2013) page is NOT yet confirmed. Confirm the figure and record the page before countersigning.'
+const IBU_STG_CITE =
+  'Ghana STG, 7th ed. (2017), Ch.4 Haematological Disorders, §18 Sickle Cell Disease, "A. Vaso-occlusive bone pain crises → Mild to moderate pain" (Ibuprofen, oral), printed p.71.'
+const IBU_STG_NOTE =
+  'Transcribed from Ghana STG 2017 p.71 (age-band mg ranges, 6–8 hourly). INTERPRETATIONS for countersign: (1) modelled as q8h (frequencyPerDay 3) though STG says "6–8 hourly"; (2) a universal ibuprofen ceiling (40 mg/kg/day and 2.4 g/day) is added on top — it can only reduce the dose; (3) STG lists ibuprofen as NOT recommended for 3 months–1 year, so no rule exists below 1 year; (4) age-band edges are half-open. Sits under Sickle Cell pain; confirm as the general ibuprofen reference. Give with food.'
+const METRO_STG_CITE =
+  'Ghana STG, 7th ed. (2017), Ch.1 Disorders of the Gastrointestinal Tract, §8 Diarrhoea, "B. Amoebic dysentery suspected" (Metronidazole, oral), printed pp.14–15.'
+const METRO_STG_NOTE =
+  'Transcribed from Ghana STG 2017 pp.14–15: age-band metronidazole 100/200/400 mg 8 hourly for 5 days. INTERPRETATIONS for countersign: (1) these are the AMOEBIC DYSENTERY doses — other indications (giardiasis, anaerobic, dental) differ, so treat as amoebiasis-specific until indication support exists; (2) age-band edges half-open ("0–3 years" = birth up to the 4th birthday, etc.).'
 
 export const paracetamol: Drug = {
   id: 'paracetamol',
@@ -334,4 +342,124 @@ export const zincSulfate: Drug = {
   ],
 }
 
-export const seedDrugs: Drug[] = [paracetamol, amoxicillin, zincSulfate]
+export const ibuprofen: Drug = {
+  id: 'ibuprofen',
+  name: 'Ibuprofen',
+  synonyms: ['Brufen', 'Nurofen'],
+  dataStatus: 'mock_for_ui_testing',
+  formulations: [
+    {
+      id: 'ibu-susp-100',
+      displayName: 'Suspension 100 mg/5 mL',
+      routes: ['oral'],
+      kind: 'liquid',
+      strength: { value: 100, unit: 'mg' },
+      perVolume: { value: 5, unit: 'mL' },
+      containerVolumeMl: 100,
+      measurableIncrementMl: 0.5,
+    },
+    { id: 'ibu-tab-200', displayName: 'Tablet 200 mg', routes: ['oral'], kind: 'solid', unit: 'tablet', strengthPerUnit: { value: 200, unit: 'mg' }, scored: false, allowedFractions: [1], packSize: 20 },
+    { id: 'ibu-tab-400', displayName: 'Tablet 400 mg', routes: ['oral'], kind: 'solid', unit: 'tablet', strengthPerUnit: { value: 400, unit: 'mg' }, scored: false, allowedFractions: [1], packSize: 20 },
+  ],
+  rules: [
+    // --- Ghana STG: age-band mg ranges, 6–8 hourly (modelled q8h) -----------
+    {
+      id: 'ibu-stg-1-5yr',
+      referenceId: STG,
+      indicationId: null,
+      ageBand: { minMonthsIncl: MO.y1, maxMonthsExcl: MO.y5 },
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: false, amount: { value: 100, unit: 'mg' }, amountMax: { value: 200, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      maxDailyDose: { kind: 'per_kg', amountPerKg: { value: 40, unit: 'mg' } },
+      absoluteCap: { kind: 'absolute', amount: { value: 2400, unit: 'mg' } },
+      defaultDurationDays: 3,
+      provenance: { referenceId: STG, editionId: '2017', citation: IBU_STG_CITE, verified: false, verifiedBy: null, verificationNote: IBU_STG_NOTE },
+      notes: '1–5 years: 100–200 mg every 6–8 hours (STG). Give with food. Not for a child < 1 year.',
+    },
+    {
+      id: 'ibu-stg-6-12yr',
+      referenceId: STG,
+      indicationId: null,
+      ageBand: { minMonthsIncl: MO.y6, maxMonthsExcl: MO.y12 },
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: false, amount: { value: 200, unit: 'mg' }, amountMax: { value: 400, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      maxDailyDose: { kind: 'per_kg', amountPerKg: { value: 40, unit: 'mg' } },
+      absoluteCap: { kind: 'absolute', amount: { value: 2400, unit: 'mg' } },
+      defaultDurationDays: 3,
+      provenance: { referenceId: STG, editionId: '2017', citation: IBU_STG_CITE, verified: false, verifiedBy: null, verificationNote: IBU_STG_NOTE },
+      notes: '6–12 years: 200–400 mg every 6–8 hours (STG). Give with food.',
+    },
+    // --- WHO: weight-based cross-check --------------------------------------
+    {
+      id: 'ibu-who-weight',
+      referenceId: WHO,
+      indicationId: null,
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: true, amount: { value: 10, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      maxDailyDose: { kind: 'per_kg', amountPerKg: { value: 40, unit: 'mg' } },
+      absoluteCap: { kind: 'absolute', amount: { value: 2400, unit: 'mg' } },
+      defaultDurationDays: 3,
+      provenance: { referenceId: WHO, editionId: '2013', citation: 'WHO Pocket Book of Hospital Care for Children, 2nd ed. (2013) — ibuprofen ~10 mg/kg/dose (page to confirm).', verified: false, verifiedBy: null, verificationNote: WHO_NOTE },
+      notes: '10 mg/kg/dose every 8 hours (max 40 mg/kg/day). Weight-based cross-check to the STG age bands.',
+    },
+  ],
+}
+
+export const metronidazole: Drug = {
+  id: 'metronidazole',
+  name: 'Metronidazole',
+  synonyms: ['Flagyl'],
+  dataStatus: 'mock_for_ui_testing',
+  formulations: [
+    {
+      id: 'metro-susp-200',
+      displayName: 'Suspension 200 mg/5 mL',
+      routes: ['oral'],
+      kind: 'liquid',
+      strength: { value: 200, unit: 'mg' },
+      perVolume: { value: 5, unit: 'mL' },
+      containerVolumeMl: 100,
+      measurableIncrementMl: 0.5,
+    },
+    { id: 'metro-tab-200', displayName: 'Tablet 200 mg (scored)', routes: ['oral'], kind: 'solid', unit: 'tablet', strengthPerUnit: { value: 200, unit: 'mg' }, scored: true, allowedFractions: [1, 0.5], packSize: 21 },
+    { id: 'metro-tab-400', displayName: 'Tablet 400 mg (scored)', routes: ['oral'], kind: 'solid', unit: 'tablet', strengthPerUnit: { value: 400, unit: 'mg' }, scored: true, allowedFractions: [1, 0.5], packSize: 21 },
+  ],
+  rules: [
+    // --- Ghana STG: amoebic dysentery, age-band fixed mg, 8 hourly, 5 days ---
+    {
+      id: 'metro-stg-0-3yr',
+      referenceId: STG,
+      indicationId: null,
+      ageBand: { minMonthsIncl: 0, maxMonthsExcl: 48 }, // 0–3 yr = birth up to 4th birthday
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: false, amount: { value: 100, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      defaultDurationDays: 5,
+      provenance: { referenceId: STG, editionId: '2017', citation: METRO_STG_CITE, verified: false, verifiedBy: null, verificationNote: METRO_STG_NOTE },
+      notes: '0–3 years: 100 mg 8 hourly for 5 days (STG, amoebic dysentery).',
+    },
+    {
+      id: 'metro-stg-4-7yr',
+      referenceId: STG,
+      indicationId: null,
+      ageBand: { minMonthsIncl: 48, maxMonthsExcl: 96 }, // 4–7 yr
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: false, amount: { value: 200, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      defaultDurationDays: 5,
+      provenance: { referenceId: STG, editionId: '2017', citation: METRO_STG_CITE, verified: false, verifiedBy: null, verificationNote: METRO_STG_NOTE },
+      notes: '4–7 years: 200 mg 8 hourly for 5 days (STG, amoebic dysentery).',
+    },
+    {
+      id: 'metro-stg-8-12yr',
+      referenceId: STG,
+      indicationId: null,
+      ageBand: { minMonthsIncl: 96, maxMonthsExcl: 156 }, // 8–12 yr
+      priority: 100,
+      phases: [{ label: 'maintenance', dose: { basis: 'per_dose', perKg: false, amount: { value: 400, unit: 'mg' }, frequencyPerDay: 3, route: 'oral' } }],
+      defaultDurationDays: 5,
+      provenance: { referenceId: STG, editionId: '2017', citation: METRO_STG_CITE, verified: false, verifiedBy: null, verificationNote: METRO_STG_NOTE },
+      notes: '8–12 years: 400 mg 8 hourly for 5 days (STG, amoebic dysentery).',
+    },
+  ],
+}
+
+export const seedDrugs: Drug[] = [paracetamol, ibuprofen, amoxicillin, metronidazole, zincSulfate]

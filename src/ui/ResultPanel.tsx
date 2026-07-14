@@ -1,6 +1,7 @@
 /** Renders a CalculationResult: blocked state, the dose, admin, dispensing, and
- *  every warning the engine raised. This view invents nothing — it only formats
- *  what calculate() returned. */
+ *  the warnings worth surfacing. This view invents nothing — it only formats what
+ *  calculate() returned. The blanket "unverified data" warning is folded into the
+ *  small source line at the bottom rather than repeated as a loud row. */
 import { AlertTriangle, Ban, CheckCircle2, Info, Pill, ShieldAlert, Syringe } from 'lucide-react'
 import type { CalculationResult, Warning } from '../engine/types'
 import { frequencyLabel, num, severityRank, severityStyles } from './format'
@@ -11,102 +12,89 @@ function WarningRow({ w }: { w: Warning }) {
   return (
     <li className={`flex gap-2.5 rounded-lg border p-3 ${s.box}`}>
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${s.label}`} aria-hidden />
-      <div>
-        <span className={`block text-[0.68rem] font-semibold uppercase tracking-wide ${s.label}`}>{w.code.replace(/_/g, ' ')}</span>
-        <span className={`text-sm ${s.text}`}>{w.message}</span>
-      </div>
+      <span className={`text-sm ${s.text}`}>{w.message}</span>
     </li>
   )
 }
 
 export function ResultPanel({ result }: { result: CalculationResult }) {
-  const sorted = [...result.warnings].sort((a, b) => severityRank[a.severity] - severityRank[b.severity])
+  // Fold the blanket "unverified" flag into the source line; keep real clinical
+  // warnings (caps, splits, unmeasurable doses) as rows.
+  const shown = result.warnings
+    .filter((w) => w.code !== 'UNVERIFIED_DATA')
+    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity])
 
   if (result.status === 'blocked') {
     return (
-      <div className="rounded-xl border border-red-300 bg-red-50 p-5 dark:border-red-900/60 dark:bg-red-950/40">
-        <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+      <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/30">
+        <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200">
           <Ban className="h-5 w-5 shrink-0" aria-hidden />
-          <h2 className="text-base font-semibold">No dose calculated</h2>
+          <h2 className="text-sm font-semibold">No dose yet</h2>
         </div>
-        <p className="mt-2 text-sm text-red-900 dark:text-red-200">{result.blockedReason}</p>
-        {sorted.length > 0 && <ul className="mt-4 space-y-2">{sorted.map((w, i) => <WarningRow key={i} w={w} />)}</ul>}
+        <p className="mt-2 text-sm text-amber-900 dark:text-amber-200/90">{result.blockedReason}</p>
       </div>
     )
   }
 
-  const { targetDose: t, administration: a, dispensing: d, provenance: p } = result
+  const { targetDose: t, administration: a, dispensing: d, provenance: p, appliedRule } = result
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Primary action — what the nurse actually does */}
       {a && (
-        <div className="rounded-xl border border-teal-300 bg-teal-50 p-5 dark:border-teal-800 dark:bg-teal-950/40">
-          <div className="flex items-center gap-2 text-teal-700 dark:text-teal-300">
+        <div className="rounded-2xl border border-teal-200 bg-gradient-to-b from-teal-50 to-white p-5 shadow-sm dark:border-teal-900/60 dark:from-teal-950/40 dark:to-slate-900">
+          <div className="flex items-center gap-1.5 text-teal-700 dark:text-teal-300">
             {a.kind === 'volume' ? <Syringe className="h-4 w-4" aria-hidden /> : <Pill className="h-4 w-4" aria-hidden />}
             <span className="text-[0.68rem] font-semibold uppercase tracking-wide">Give each dose</span>
           </div>
-          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-teal-900 tabular-nums dark:text-teal-100">{a.instruction}</p>
+          <p className="mt-1.5 text-3xl font-semibold tracking-tight text-teal-900 tabular-nums dark:text-teal-50">{a.instruction}</p>
           {t && <p className="mt-1 text-sm text-teal-800/90 dark:text-teal-200/80">{frequencyLabel(t.frequencyPerDay)}</p>}
-          <p className="mt-2 text-xs text-teal-700/80 dark:text-teal-300/70">
-            Delivers ≈ {a.deliveredMgHigh != null ? `${num(a.deliveredMg)}–${num(a.deliveredMgHigh)}` : num(a.deliveredMg)} mg per dose
+          <p className="mt-2 text-xs text-teal-700/70 dark:text-teal-300/60">
+            ≈ {a.deliveredMgHigh != null ? `${num(a.deliveredMg)}–${num(a.deliveredMgHigh)}` : num(a.deliveredMg)} mg per dose
           </p>
         </div>
       )}
 
-      {/* Target dose */}
-      {t && (
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 text-sm dark:border-slate-700 dark:bg-slate-700">
-          <div className="bg-white p-3 dark:bg-slate-900">
-            <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500">Dose</dt>
+      {/* Target dose + dispensing, compact */}
+      <div className="grid grid-cols-2 gap-2">
+        {t && (
+          <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-400">Dose</dt>
             <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">
               {t.perDoseHigh ? `${num(t.perDose.value)}–${num(t.perDoseHigh.value)}` : num(t.perDose.value)} {t.perDose.unit}
+              {t.capApplied && <span className="ml-1.5 align-middle text-[0.62rem] font-semibold text-amber-600 dark:text-amber-400">· capped</span>}
             </dd>
+            <dd className="mt-0.5 text-xs text-slate-500">{t.basisLabel}</dd>
           </div>
-          <div className="bg-white p-3 dark:bg-slate-900">
-            <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500">Per day</dt>
-            <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">
-              {t.perDay ? `${t.perDayHigh ? `${num(t.perDay.value)}–${num(t.perDayHigh.value)}` : num(t.perDay.value)} ${t.perDay.unit}` : '—'}
-            </dd>
+        )}
+        {d ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-400">Dispense · {num(d.courseDays)} days</dt>
+            <dd className="mt-0.5 font-medium tabular-nums text-slate-900 dark:text-slate-100">{d.totalLabel}</dd>
+            <dd className="mt-0.5 text-xs text-slate-500">{d.packLabel}</dd>
           </div>
-          <div className="col-span-2 bg-white p-3 dark:bg-slate-900">
-            <dt className="text-[0.68rem] font-semibold uppercase tracking-wide text-slate-500">Basis</dt>
-            <dd className="mt-0.5 flex flex-wrap items-center gap-2 text-slate-700 dark:text-slate-300">
-              <span className="tabular-nums">{t.basisLabel}</span>
-              {t.capApplied && (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[0.68rem] font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
-                  capped to safe limit
-                </span>
-              )}
-            </dd>
-          </div>
-        </dl>
-      )}
+        ) : (
+          <div />
+        )}
+      </div>
 
-      {/* Dispensing */}
-      {d && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex items-center gap-2 text-slate-500">
-            <span className="text-[0.68rem] font-semibold uppercase tracking-wide">Dispense for {num(d.courseDays)}-day course</span>
-          </div>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900 dark:text-slate-100">{d.totalLabel}</p>
-          <p className="text-sm text-slate-600 dark:text-slate-400">{d.packLabel}</p>
-        </div>
-      )}
+      {/* Rule note — clinical context, not a disclaimer */}
+      {appliedRule?.notes && <p className="px-0.5 text-xs text-slate-500 dark:text-slate-400">{appliedRule.notes}</p>}
 
-      {/* Warnings */}
-      {sorted.length > 0 && <ul className="space-y-2">{sorted.map((w, i) => <WarningRow key={i} w={w} />)}</ul>}
+      {/* Real clinical warnings */}
+      {shown.length > 0 && <ul className="space-y-2">{shown.map((w, i) => <WarningRow key={i} w={w} />)}</ul>}
 
-      {/* Provenance */}
+      {/* Source line (also carries the verified/unverified state, quietly) */}
       {p && (
-        <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-700 dark:bg-slate-900/60">
+        <div className="flex items-start gap-1.5 border-t border-slate-100 pt-2.5 text-[0.7rem] leading-relaxed text-slate-400 dark:border-slate-800">
           {p.verified ? (
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden />
+            <CheckCircle2 className="mt-px h-3 w-3 shrink-0 text-emerald-500" aria-hidden />
           ) : (
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-label="unverified" />
           )}
-          <span className="text-slate-600 dark:text-slate-400">
-            <span className="font-medium text-slate-700 dark:text-slate-300">{p.verified ? 'Verified' : 'Unverified'}</span> · {p.citation}
+          <span>
+            {!p.verified && <span className="font-medium text-slate-500 dark:text-slate-400">Awaiting sign-off · </span>}
+            {p.citation}
           </span>
         </div>
       )}

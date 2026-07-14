@@ -91,9 +91,9 @@ function Calculator() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Dev-data banner — every rule shipped today is unverified mock data */}
-      <div className="bg-amber-500 px-4 py-2 text-center text-sm font-medium text-amber-950">
-        Development build · dosing data is unverified &amp; awaiting clinician sign-off · not for clinical use
+      {/* One quiet line — the data is still being validated */}
+      <div className="border-b border-amber-200/70 bg-amber-50 px-4 py-1.5 text-center text-xs text-amber-700 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-500/90">
+        Reference data is still being validated — not yet for clinical use
       </div>
 
       <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:px-6">
