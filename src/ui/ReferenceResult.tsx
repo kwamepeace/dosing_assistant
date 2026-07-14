@@ -1,12 +1,10 @@
 /** One column of the side-by-side comparison: a reference's header (name,
- *  edition, and a pill saying HOW it doses — by age band vs by weight) above the
- *  ResultPanel for that reference. */
-import { Star } from 'lucide-react'
+ *  edition, and how it doses — by age band vs by weight) above the ResultPanel.
+ *  Plain and classic: a serif name, a hairline rule, no pills. */
 import type { Reference } from '../data/schema'
 import type { CalculationResult } from '../engine/types'
 import { ResultPanel } from './ResultPanel'
 
-/** Describe the dosing model of the rule the engine actually applied. */
 function modelHint(result: CalculationResult): string | null {
   const rule = result.appliedRule
   if (!rule) return null
@@ -19,24 +17,20 @@ export function ReferenceResult({ reference, result }: { reference: Reference; r
   const hint = result ? modelHint(result) : null
   return (
     <section className="flex flex-col">
-      <header className="mb-3 flex items-start justify-between gap-2 border-b border-slate-200 pb-2 dark:border-slate-800">
-        <div>
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {reference.preferred && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="preferred source" />}
+      <header className="mb-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="font-serif text-lg text-slate-900 dark:text-slate-100">
             {reference.shortName}
+            {reference.preferred && <span className="ml-1.5 align-super text-[0.6rem] font-sans uppercase tracking-wide text-slate-400">preferred</span>}
           </h3>
-          <p className="text-xs text-slate-500">{reference.editionLabel}</p>
+          {hint && <span className="whitespace-nowrap text-[0.7rem] text-slate-400">{hint}</span>}
         </div>
-        {hint && (
-          <span className="whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-[0.68rem] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            {hint}
-          </span>
-        )}
+        <p className="text-xs text-slate-500">{reference.editionLabel}</p>
       </header>
       {result ? (
         <ResultPanel result={result} />
       ) : (
-        <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
+        <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 dark:border-slate-700">
           Enter a weight to calculate.
         </div>
       )}

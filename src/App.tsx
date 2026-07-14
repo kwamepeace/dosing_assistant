@@ -4,11 +4,13 @@
  * A thin, honest shell over the deterministic engine. It collects one set of
  * inputs and shows the result for EVERY populated reference side by side, so a
  * clinician can see, at a glance, how the Ghana STG (age-band) and the WHO
- * Pocket Book (weight-based mg/kg) dose the same child differently. It states no
- * dose the engine didn't produce, and never hides that the data is unverified.
+ * Pocket Book (weight-based mg/kg) dose the same child differently.
+ *
+ * Visual style: deliberately plain and classic — ink on paper, hairline rules,
+ * a serif for headings. No gradients, no bright accents; the numbers lead.
  */
 import { useMemo, useState } from 'react'
-import { FlaskConical, Scale, Baby, Stethoscope, Columns2, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { drugById, drugs, populatedReferences, references, rulesFor } from './data'
 import type { Formulation } from './data/schema'
 import { calculate } from './engine/calculate'
@@ -18,10 +20,10 @@ import { useAuth } from './auth/AuthProvider'
 import { AuthScreen } from './auth/AuthScreen'
 import { AccountMenu } from './auth/AccountMenu'
 
-const labelCls = 'block text-[0.7rem] font-semibold uppercase tracking-wide text-slate-500 mb-1.5'
+const labelCls = 'block text-[0.7rem] font-semibold uppercase tracking-wider text-slate-500 mb-1.5'
 const fieldCls =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 shadow-sm outline-none transition ' +
-  'focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100'
+  'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition ' +
+  'focus:border-slate-800 focus:ring-1 focus:ring-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-slate-400'
 
 function formulationLabel(f: Formulation): string {
   return f.displayName
@@ -34,7 +36,7 @@ export default function App() {
   if (configured && loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="h-6 w-6 animate-spin text-teal-600" aria-label="Loading" />
+        <Loader2 className="h-6 w-6 animate-spin text-slate-500" aria-label="Loading" />
       </div>
     )
   }
@@ -57,7 +59,6 @@ function Calculator() {
     setFormulationId(drugById.get(id)!.formulations[0].id) // keep formulation valid for the new drug
   }
 
-  // References that actually have rules for THIS drug, preferred source first.
   const activeRefs = useMemo(
     () =>
       populatedReferences()
@@ -69,7 +70,6 @@ function Calculator() {
   const weightKg = parseFloat(weight)
   const hasWeight = Number.isFinite(weightKg) && weightKg > 0
 
-  // One CalculationResult per active reference — same inputs, different source.
   const results = useMemo(() => {
     if (!hasWeight) return {} as Record<string, CalculationResult>
     const out: Record<string, CalculationResult> = {}
@@ -92,35 +92,28 @@ function Calculator() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       {/* One quiet line — the data is still being validated */}
-      <div className="border-b border-amber-200/70 bg-amber-50 px-4 py-1.5 text-center text-xs text-amber-700 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-500/90">
+      <div className="border-b border-slate-200 bg-slate-100 px-4 py-1.5 text-center text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
         Reference data is still being validated — not yet for clinical use
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:px-6">
-        <header className="mb-8 flex items-start justify-between gap-4">
+      <div className="mx-auto max-w-4xl px-4 pb-16 pt-10 sm:px-6">
+        <header className="mb-8 flex items-end justify-between gap-4 border-b border-slate-200 pb-6 dark:border-slate-800">
           <div>
-            <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400">
-              <Stethoscope className="h-5 w-5" aria-hidden />
-              <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em]">Paediatric dosing · Ghana</span>
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">Dose &amp; dispensing calculator</h1>
-            <p className="mt-1.5 max-w-prose text-sm text-slate-600 dark:text-slate-400">
-              Enter a child’s weight, choose the drug and formulation, and compare how each reference doses it — the
-              administration dose and the quantity to dispense, every number tied to a cited source.
-            </p>
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-500">Paediatric dosing · Ghana</p>
+            <h1 className="mt-1.5 font-serif text-3xl font-normal tracking-tight text-slate-900 dark:text-slate-50">
+              Dose &amp; Dispensing Calculator
+            </h1>
           </div>
           <AccountMenu />
         </header>
 
         {/* ---- Inputs ---- */}
         <form
-          className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2 sm:p-5"
+          className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-2"
           onSubmit={(e) => e.preventDefault()}
         >
           <div className="sm:col-span-2">
-            <label htmlFor="drug" className={labelCls}>
-              <FlaskConical className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Drug
-            </label>
+            <label htmlFor="drug" className={labelCls}>Drug</label>
             <select id="drug" className={fieldCls} value={drugId} onChange={(e) => onDrugChange(e.target.value)}>
               {drugs.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -132,92 +125,51 @@ function Calculator() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="formulation" className={labelCls}>
-              Formulation / strength
-            </label>
+            <label htmlFor="formulation" className={labelCls}>Formulation / strength</label>
             <select id="formulation" className={fieldCls} value={formulation.id} onChange={(e) => setFormulationId(e.target.value)}>
               {drug.formulations.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {formulationLabel(f)}
-                </option>
+                <option key={f.id} value={f.id}>{formulationLabel(f)}</option>
               ))}
             </select>
           </div>
 
           <div className="grid grid-cols-3 gap-3 sm:col-span-2">
             <div>
-              <label htmlFor="weight" className={labelCls}>
-                <Scale className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Weight (kg)
-              </label>
-              <input
-                id="weight"
-                className={fieldCls}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.1"
-                placeholder="e.g. 12"
-                value={weight}
-                onChange={(e) => setWeight(e.target.value)}
-              />
+              <label htmlFor="weight" className={labelCls}>Weight (kg)</label>
+              <input id="weight" className={fieldCls} type="number" inputMode="decimal" min="0" step="0.1" placeholder="e.g. 12" value={weight} onChange={(e) => setWeight(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="age" className={labelCls}>
-                <Baby className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> Age (mo)
-              </label>
-              <input
-                id="age"
-                className={fieldCls}
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                placeholder="if age-band"
-                value={ageMonths}
-                onChange={(e) => setAgeMonths(e.target.value)}
-              />
+              <label htmlFor="age" className={labelCls}>Age (mo)</label>
+              <input id="age" className={fieldCls} type="number" inputMode="numeric" min="0" step="1" placeholder="if age-band" value={ageMonths} onChange={(e) => setAgeMonths(e.target.value)} />
             </div>
             <div>
-              <label htmlFor="course" className={labelCls}>
-                Course (days)
-              </label>
-              <input
-                id="course"
-                className={fieldCls}
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                placeholder="default"
-                value={courseDays}
-                onChange={(e) => setCourseDays(e.target.value)}
-              />
+              <label htmlFor="course" className={labelCls}>Course (days)</label>
+              <input id="course" className={fieldCls} type="number" inputMode="numeric" min="1" step="1" placeholder="default" value={courseDays} onChange={(e) => setCourseDays(e.target.value)} />
             </div>
           </div>
 
           <p className="text-xs text-slate-500 sm:col-span-2">
-            Age is needed for age-banded references (e.g. the Ghana STG for paracetamol, amoxicillin, zinc). Course length
-            defaults to each rule’s recommended duration when left blank.
+            Age is needed for age-banded references (e.g. the Ghana STG for paracetamol, ibuprofen, amoxicillin,
+            metronidazole, zinc). Course length defaults to each rule’s recommended duration when left blank.
           </p>
         </form>
 
         {/* ---- Comparison ---- */}
-        <div className="mt-6">
-          <div className="mb-3 flex items-center gap-2 text-slate-500">
-            <Columns2 className="h-4 w-4" aria-hidden />
-            <h2 className="text-[0.7rem] font-semibold uppercase tracking-wide">
-              {activeRefs.length > 1 ? `Comparison · ${activeRefs.length} references` : 'Result'}
-            </h2>
-          </div>
+        <div className="mt-8">
+          <h2 className="mb-4 text-[0.7rem] font-semibold uppercase tracking-wider text-slate-500">
+            {activeRefs.length > 1 ? `Comparison · ${activeRefs.length} references` : 'Result'}
+          </h2>
 
-          <div className={`grid gap-6 ${activeRefs.length > 1 ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-            {activeRefs.map((ref) => (
-              <ReferenceResult key={ref.id} reference={ref} result={hasWeight ? results[ref.id] : null} />
+          <div className={`grid gap-x-8 gap-y-6 ${activeRefs.length > 1 ? 'md:grid-cols-2 md:divide-x md:divide-slate-200 dark:md:divide-slate-800' : 'grid-cols-1'}`}>
+            {activeRefs.map((ref, i) => (
+              <div key={ref.id} className={activeRefs.length > 1 && i > 0 ? 'md:pl-8' : undefined}>
+                <ReferenceResult reference={ref} result={hasWeight ? results[ref.id] : null} />
+              </div>
             ))}
           </div>
 
           {hiddenRefs.length > 0 && (
-            <p className="mt-5 text-xs text-slate-400">
+            <p className="mt-8 border-t border-slate-200 pt-4 text-xs text-slate-400 dark:border-slate-800">
               Not shown:{' '}
               {hiddenRefs.map((r, i) => (
                 <span key={r.id}>
